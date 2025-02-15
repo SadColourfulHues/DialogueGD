@@ -1,0 +1,107 @@
+Dialogue Script [SCHLib/GD Edition]
+
+*** Example ***
+
+[start]
+<Character A>
+This is a line of dialogue.
+It can be broken up into multiple lines.
+
+# Assigns the word 'orange' to the variable 'item'
+@set item orange
+
+<Character A>
+This is the start of a new dialogue block.
+You can use variables by enclosing their name under curly braces.
+For example: I'm currently eating an {item}!
+
+<Character A>
+This is a dialogue block with a choice.
+
+    Choice A
+    [start]
+
+    Choice B
+    Like Dialogue lines, it can
+    be broken up into
+    multiple
+    lines
+    # All it needs is a destination tag to be considered valid
+    [next]
+
+    # Choices enclosed in a {} tag will require certain flag(s)
+    # to be set before being shown
+    Choice C
+    [[has_seen_b]]
+    [exit]
+
+[next]
+<Character B>
+You have now seen this dialogue,
+you can add a command flag to enable certain options like:
+
+@flag has_seen_b
+@jump choice
+
+[exit]
+<Character A>
+You have now reached the end of the script.
+Make sure to call the exit command to terminate the script.
+
+@exit
+
+*** /Example ***
+
+Notes:
+
+*** Dialogue Blocks ***
+New dialogue blocks are denoted by character markers.
+Each block can have as many lines as it needs to,
+commands and choices listed under the character tag
+are associated with the current block.
+
+Character IDs are declared by enclosing it within angled brackets.
+Like everything else, variables can also be used within it
+to allow some basic degree of customisation.
+
+e.g.
+<character name>
+dialogue goes here!
+
+Some notes:
+    Commands are activated as soon as the dialogue block is entered
+    Choices are also presented instanteously
+
+
+*** Choices ***
+Choices are denoted by a dialogue line with an indent level
+higher than zero.
+
+All choices are expected to have one destination bookmark
+tag somewhere beneath it. e.g. [destination_id]
+
+To add a flag requirement to a choice:
+    add the flag's ID beneath it, enclosed in two square braces.
+    e.g. [[tag_requirement]]
+
+    There is no limit to the amount of required flags that can
+    be added to a choice block.
+
+
+*** Events ***
+Events are actions triggered through the dialogue script
+that can be acted upon by the playback controller.
+
+Inbuilt events such as 'exit', 'set', and 'jump' allow for
+basic control over dialogue playback.
+
+A command is denoted by adding a '@' character at the start of a line.
+Subsequent spaces are treated as options to customise the behaviour
+of the event.
+
+@command_name parameter_1 parameter_2
+
+e.g.
+@jump start
+    <- triggers the 'jump' event that causes the playback to go to
+        the dialogue block with the bookmark ID 'start'
