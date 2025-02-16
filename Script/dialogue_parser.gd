@@ -247,7 +247,7 @@ func __identify_line(line: String) -> DSType:
 
 ## Returns the contents of a tag line
 func __unwrap_tag(line: String, step: int = 1) -> String:
-	return line.substr(step, line.length() - step - 1)
+	return line.substr(step, line.length() - (2 * step))
 
 
 ## Returns true if the given input is empty (spaces and tabs are ignored)
@@ -289,7 +289,7 @@ func __push_event(line: String) -> void:
 	event.m_command_id = event_params[0]
 
 	if event_size > 1:
-		for param: String in event_params:
+		for param: String in event_params.slice(1):
 			event.p_parameters.append(param)
 
 	p_tmp_events.append(event)

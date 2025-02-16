@@ -3,9 +3,9 @@
 class_name DSNodeBin
 extends Object
 
-const ID_NODE := 0
-const ID_CHOICE := 1
-const ID_EVENT := 2
+const ID_NODE := 1
+const ID_CHOICE := 2
+const ID_EVENT := 3
 
 
 #region Writers
@@ -38,11 +38,14 @@ static func write_event(writer: FileAccess, event: DialogueEvent) -> void:
 
 
 ## Encodes a [DialogueNode] into a binary format
-static func write_node(writer: FileAccess, dialogue: DialogueNode) -> void:
+static func write_node(writer: FileAccess,
+					   dialogue: DialogueNode,
+					   char_map: Dictionary[StringName, int]) -> void:
+
 	# Head #
 	writer.store_8(ID_NODE)
 	writer.store_pascal_string(dialogue.m_id)
-	writer.store_pascal_string(dialogue.m_character_id)
+	writer.store_8(char_map[dialogue.m_character_id])
 	writer.store_pascal_string(dialogue.m_text)
 
 	# Sub Data: Events #
@@ -60,10 +63,28 @@ static func write_node(writer: FileAccess, dialogue: DialogueNode) -> void:
 
 ## Encodes an entire [DialogueGraph] into a binary format
 static func write_graph(writer: FileAccess, graph: DialogueGraph) -> void:
+	# Character Map #
+	var char_map: Dictionary[StringName, int]
+	var counter := 0
+
+	for node: DialogueNode in graph.p_nodes:
+		if char_map.has(node.m_character_id):
+			continue
+
+		char_map[node.m_character_id] = counter
+		counter += 1
+
+	writer.store_8(char_map.size())
+
+	for char_id: StringName in char_map:
+		writer.store_pascal_string(char_id)
+		writer.store_8(char_map[char_id])
+
+	# Nodes #
 	writer.store_16(graph.p_nodes.size())
 
 	for node: DialogueNode in graph.p_nodes:
-		write_node(writer, node)
+		write_node(writer, node, char_map)
 
 #endregion
 
@@ -114,7 +135,9 @@ static func read_event(reader: FileAccess) -> DialogueEvent:
 
 
 ## Reads the next [DialogueNode] object in the current reader
-static func read_node(reader: FileAccess) -> DialogueNode:
+static func read_node(reader: FileAccess,
+					  char_map: Dictionary[int, StringName]) -> DialogueNode:
+
 	# Head #
 	if !__is_stored_type(reader, ID_NODE):
 		return null
@@ -122,7 +145,7 @@ static func read_node(reader: FileAccess) -> DialogueNode:
 	var node := DialogueNode.new()
 
 	node.m_id = reader.get_pascal_string()
-	node.m_character_id = reader.get_pascal_string()
+	node.m_character_id = char_map[reader.get_8()]
 	node.m_text = reader.get_pascal_string()
 
 	# Sub Data: Events #
@@ -150,13 +173,23 @@ static func read_node(reader: FileAccess) -> DialogueNode:
 
 ## Reads an entire [DialogueGraph] file from the current reader
 static func read_graph(reader: FileAccess) -> DialogueGraph:
+	# Character Map #
+	var char_map: Dictionary[int, StringName]
+
+	for _i: int in range(reader.get_8()):
+		var char_name: StringName = reader.get_pascal_string()
+		var char_id: int = reader.get_8()
+
+		char_map[char_id] = char_name
+
+	# Nodes #
 	var graph := DialogueGraph.new()
 	var size := reader.get_16()
 
 	graph.p_nodes.resize(size)
 
 	for i: int in range(size):
-		graph.p_nodes[i] = read_node(reader)
+		graph.p_nodes[i] = read_node(reader, char_map)
 
 	return graph
 
