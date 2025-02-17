@@ -5,6 +5,9 @@ extends Object
 
 const NO_CHOICES: Array[DialogueChoice] = []
 
+const EVENT_CONTROL_PASS := 0
+const EVENT_CONTROL_HALT := 1
+
 ## This signal is triggered when the playback state resets to the
 ## beginning of a dialogue graph. Or if the graph itself has been changed.
 signal resetted()
@@ -27,6 +30,7 @@ signal event_available(event_id: StringName, parameters: Array[String])
 
 var m_index: int
 var m_last_char_id: StringName
+var m_event_control: int
 
 var p_variables: Dictionary[StringName, Variant]
 var p_graph: DialogueGraph
@@ -150,6 +154,28 @@ func seek_to_end() -> void:
     m_index = p_graph.p_nodes.size() - 1
     __present_scene()
 
+
+## Passes the given control ID to the playback
+## (Use on handlers for [event_available] to change processing behaviour.)
+func set_event_control(control_id: int) -> void:
+    m_event_control = control_id
+
+
+## Replaces variables in the given [text] with their current variables
+func __resolve_vars(text: String) -> String:
+    var final_text := text
+
+    # TODO: consider using a different approach for resolution?
+    for v_id: StringName in p_variables:
+        var v_val: Variant = p_variables[v_id]
+
+        if v_val is not String:
+            continue
+
+        final_text = final_text.replace(&"{%s}" % v_id, p_variables[v_id])
+
+    return final_text
+
 #endregion
 
 #region Utils
@@ -178,23 +204,15 @@ func __present_scene() -> void:
         return
 
     for event: DialogueEvent in node.p_events:
+        m_event_control = EVENT_CONTROL_PASS
         event_available.emit(event)
 
+        match m_event_control:
+            EVENT_CONTROL_HALT:
+                break
 
-## Replaces variables in the given [text] with their current variables
-func __resolve_vars(text: String) -> String:
-    var final_text := text
-
-    # TODO: consider using a different approach for resolution?
-    for v_id: StringName in p_variables:
-        var v_val: Variant = p_variables[v_id]
-
-        if v_val is not String:
-            continue
-
-        final_text = final_text.replace(&"{%s}" % v_id, p_variables[v_id])
-
-    return final_text
+            _:
+                continue
 
 
 func __filter_choice_flags(choice: DialogueChoice) -> bool:
@@ -205,9 +223,19 @@ func __filter_choice_flags(choice: DialogueChoice) -> bool:
 
 
 func __process_inbuilt_events(events: Array[DialogueEvent]) -> bool:
+    var is_handled := false
+
     for event: DialogueEvent in events:
+        m_event_control = EVENT_CONTROL_PASS
+
         if __process_inbuilt_event(event):
-            return true
+            is_handled = true
+
+        if m_event_control == EVENT_CONTROL_HALT:
+            break
+
+    if is_handled:
+        return true
 
     return false
 
@@ -226,8 +254,20 @@ func __process_inbuilt_event(event: DialogueEvent) -> bool:
                 printerr("DialoguePlayback: event 'jump' requires one parameter to work. Usage: \"jump <target bookmark>\"")
                 return false
 
-            var target_id := params[0]
-            seek_to_bookmark(target_id)
+            seek_to_bookmark(params[0])
+            set_event_control(EVENT_CONTROL_HALT)
+            return true
+
+        &"jumpif":
+            if param_size < 2:
+                printerr("DialoguePlayback: event 'jumpif' requires two parameters to work. Usage: \"jumpif <flag_id> <bookmark>\"")
+                return false
+
+            if !p_variables.has(params[0]):
+                return true
+
+            seek_to_bookmark(params[1])
+            set_event_control(EVENT_CONTROL_HALT)
             return true
 
         &"flag":
@@ -263,7 +303,6 @@ func __process_inbuilt_event(event: DialogueEvent) -> bool:
 
     return false
 
-
 #endregion
 
 #region Variable Persistence
@@ -279,7 +318,7 @@ func _on_write(writer: FileAccess) -> void:
 func _on_restore(reader: FileAccess) -> void:
     p_variables.clear()
 
-    for _i: int in range(reader.read_16()):
+    for _i: int in range(reader.get_16()):
         var key := reader.get_pascal_string()
         var value: Variant = reader.get_var()
 
