@@ -38,8 +38,6 @@ var p_tmp_choice_requirements: Array[StringName]
 var p_tmp_choices: Array[DialogueChoice]
 var p_tmp_events: Array[DialogueEvent]
 
-var p_pat_indent_capture := RegEx.create_from_string(&"(\\t| {3,})(.+)")
-
 
 #region Functions
 
@@ -58,7 +56,7 @@ func string_to_graph(script: String) -> DialogueGraph:
 
 	for line: String in lines:
 		# Skip empty lines
-		if __is_empty_line(line):
+		if is_empty_line(line):
 			continue
 
 		__process(graph, line)
@@ -115,7 +113,7 @@ static func graph_to_file(graph: DialogueGraph, out_path: String) -> bool:
 
 ## Runs the main parsing process on a given line
 func __process(graph: DialogueGraph, line: String) -> void:
-	var dstype := __identify_line(line)
+	var dstype := identify_line(line)
 
 	# State alterations will cause the parser to
 	# re-evaluate the line under the new state
@@ -152,10 +150,10 @@ func __process_line(graph: DialogueGraph,
 
 	match dstype:
 		DSType.BOOKMARK:
-			m_tmp_bookmark_id = __unwrap_tag(line)
+			m_tmp_bookmark_id = unwrap_tag(line)
 
 		DSType.CHARACTER:
-			m_tmp_character_id = __unwrap_tag(line)
+			m_tmp_character_id = unwrap_tag(line)
 			m_write_started = true
 
 		DSType.LINE:
@@ -197,10 +195,10 @@ func __process_choice(line: String, dstype: DSType) -> bool:
 				m_tmp_choice_id += &" " + sline
 
 		DSType.CHOICE_REQUIREMENT:
-			p_tmp_choice_requirements.append(__unwrap_tag(sline, 2))
+			p_tmp_choice_requirements.append(unwrap_tag(sline, 2))
 
 		DSType.CHOICE_TARGET:
-			m_tmp_choice_destination = __unwrap_tag(sline)
+			m_tmp_choice_destination = unwrap_tag(sline)
 
 		## Non-choice blocks automatically reverts the parser
 		## to its normal state
@@ -214,14 +212,12 @@ func __process_choice(line: String, dstype: DSType) -> bool:
 
 
 ## Returns the DialogueScript type of a given line
-func __identify_line(line: String) -> DSType:
+static func identify_line(line: String) -> DSType:
 	if line.begins_with(&"#"):
 		return DSType.COMMENT
 
-	var line_match := p_pat_indent_capture.search(line)
-
 	# Choice-specific types #
-	if line_match != null:
+	if is_indented(line):
 		var sline := line.lstrip(" \t")
 
 		if sline.begins_with(&"#"):
@@ -246,13 +242,17 @@ func __identify_line(line: String) -> DSType:
 
 
 ## Returns the contents of a tag line
-func __unwrap_tag(line: String, step: int = 1) -> String:
+static func unwrap_tag(line: String, step: int = 1) -> String:
 	return line.substr(step, line.length() - (2 * step))
 
 
 ## Returns true if the given input is empty (spaces and tabs are ignored)
-func __is_empty_line(line: String) -> bool:
+static func is_empty_line(line: String) -> bool:
 	return line.lstrip(" \t\n").is_empty()
+
+
+static func is_indented(line: String) -> bool:
+	return line.begins_with(&"\t") || line.begins_with(&"    ")
 
 
 #endregion
