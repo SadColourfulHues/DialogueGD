@@ -81,7 +81,7 @@ func advance(wrap_at_end: bool = false, bypass_choices: bool = false) -> bool:
     if wrap_at_end:
         m_index = wrapi(m_index + 1, 0, size)
     else:
-        m_index = min(size - 1, m_index + 1)
+        m_index += 1
 
     # Edge check
     if m_index < 0 || m_index >= size:
